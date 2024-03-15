@@ -5,8 +5,8 @@ import pprint
 
 import numpy
 
-from igor.binarywave import load
-from igor.script import Script
+from igor2.binarywave import load
+from igor2.script import Script
 
 
 class WaveScript (Script):
