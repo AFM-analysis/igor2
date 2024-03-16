@@ -23,7 +23,7 @@ import pprint
 
 from igor2.packed import load, walk
 from igor2.record.wave import WaveRecord
-from igor2.script import Script
+from igor2.cli.script import Script
 
 
 class PackedScript (Script):
