@@ -19,6 +19,9 @@ class WaveScript (Script):
             wave['wave'].pop('wData')
             pprint.pprint(wave)
 
+def main():
+    s = WaveScript(description=__doc__)
+    s.run()
 
-s = WaveScript(description=__doc__)
-s.run()
+if __name__ == '__main__':
+    main()

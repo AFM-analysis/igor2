@@ -48,7 +48,10 @@ class PackedScript (Script):
         if isinstance(value, WaveRecord):
             self.plot_wave(self.args, value.wave, title=dirpath + [key])
 
+def main():
+    s = PackedScript(
+        description=__doc__, filetype='IGOR Packed Experiment (.pxp) file')
+    s.run()
 
-s = PackedScript(
-    description=__doc__, filetype='IGOR Packed Experiment (.pxp) file')
-s.run()
+if __name__ == '__main__':
+    main()

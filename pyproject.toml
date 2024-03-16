@@ -33,8 +33,8 @@ CLI = [
     ]
 
 [project.scripts]
-igorbinarywave = 'igor2.cli:igorbinarywave'
-igorpackedexperiment = 'igor2.cli:igorpackedexperiment'
+igorbinarywave = 'igor2.cli.igorbinarywave:main'
+igorpackedexperiment = 'igor2.cli.igorpackedexperiment:main'
 
 [tool.setuptools]
 packages = ["igor2"]
