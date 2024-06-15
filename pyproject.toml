@@ -13,7 +13,7 @@ authors = [
 ]
 description = "interface for reading binary IGOR files"
 readme = "Readme.rst"
-requires-python = ">=3.8, <4"
+requires-python = ">=3.6, <4"
 classifiers = [
     'Intended Audience :: Developers',
     'Intended Audience :: Science/Research',
@@ -23,7 +23,7 @@ classifiers = [
 ]
 license = {text = "GNU Lesser General Public License v3 or later (LGPLv3+)"}
 dependencies = [
-  "numpy>=1.25.1",
+  "numpy>=1.19.2",
 ]
 dynamic = ["version"]
 
