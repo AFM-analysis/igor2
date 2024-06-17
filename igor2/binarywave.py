@@ -83,7 +83,7 @@ class NullStaticStringField (StaticStringField):
 # From IgorMath.h
 TYPE_TABLE = {        # (key: integer flag, value: numpy dtype)
     0: None,           # Text wave, not handled in ReadWave.c
-    1: _numpy.complex_,  # NT_CMPLX, makes number complex.
+    1: _numpy.complex128,  # NT_CMPLX, makes number complex.
     2: _numpy.float32,  # NT_FP32, 32 bit fp numbers.
     3: _numpy.complex64,
     4: _numpy.float64,  # NT_FP64, 64 bit fp numbers.
