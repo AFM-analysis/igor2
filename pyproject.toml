@@ -41,3 +41,7 @@ packages = ["igor2"]
 [tool.setuptools_scm]
 write_to = "igor2/_version.py"
 version_scheme = "post-release"
+
+[project.urls]
+Issues = "https://github.com/AFM-analysis/igor2/issues"
+Source = "https://github.com/AFM-analysis/igor2"
