@@ -1,3 +1,5 @@
+0.5.12
+ - fix: thread-safety issue when loading data (#24)
 0.5.11
  - maintenance release
 0.5.10
