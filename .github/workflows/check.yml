@@ -12,10 +12,6 @@ jobs:
       matrix:
         python-version: ['3.11']
         os: [macos-latest, ubuntu-latest, windows-latest]
-        include:
-          # oldest supported python version only available on ubuntu 20.04
-          - python-version: '3.6'
-            os: ubuntu-20.04
       fail-fast: false
 
     steps:
