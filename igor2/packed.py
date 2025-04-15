@@ -36,7 +36,8 @@ def setup_packed_file_record_header(byte_order='@'):
     record_header = _Structure(
         name='PackedFileRecordHeader',
         fields=[
-            _Field('H', 'recordType', help='Record type plus superceded flag.'),
+            _Field('H', 'recordType',
+                   help='Record type plus superceded flag.'),
             _Field('h', 'version',
                    help='Version information depends on the type of record.'),
             _Field('l', 'numDataBytes',
