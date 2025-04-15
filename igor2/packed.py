@@ -25,22 +25,28 @@ logger = logging.getLogger(__name__)
 # files, you must skip any record with a record type that is not
 # listed above.
 
-PackedFileRecordHeader = _Structure(
-    name='PackedFileRecordHeader',
-    fields=[
-        _Field('H', 'recordType', help='Record type plus superceded flag.'),
-        _Field('h', 'version',
-               help='Version information depends on the type of record.'),
-        _Field('l', 'numDataBytes',
-               help='Number of data bytes in the record following this'
-                    'record header.'),
-    ])
-
 # CR_STR = '\x15'  (\r)
 
 PACKEDRECTYPE_MASK = 0x7FFF  # Record type = (recordType & PACKEDREC_TYPE_MASK)
 SUPERCEDED_MASK = 0x8000  # Bit is set if the record is superceded by
 # a later record in the packed file.
+
+
+def setup_packed_file_record_header(byte_order='@'):
+    record_header = _Structure(
+        name='PackedFileRecordHeader',
+        fields=[
+            _Field('H', 'recordType',
+                   help='Record type plus superceded flag.'),
+            _Field('h', 'version',
+                   help='Version information depends on the type of record.'),
+            _Field('l', 'numDataBytes',
+                   help='Number of data bytes in the record following this'
+                   'record header.'),
+        ],
+        byte_order=byte_order)
+    record_header.setup()
+    return record_header
 
 
 def load(filename, strict=True, ignore_unknown=True, initial_byte_order=None):
@@ -77,17 +83,17 @@ def load(filename, strict=True, ignore_unknown=True, initial_byte_order=None):
         initial_byte_order = '='
     try:
         while True:
-            PackedFileRecordHeader.byte_order = initial_byte_order
-            PackedFileRecordHeader.setup()
-            b = bytes(f.read(PackedFileRecordHeader.size))
+            header_struct = setup_packed_file_record_header(
+                byte_order=initial_byte_order)
+            b = bytes(f.read(header_struct.size))
             if not b:
                 break
-            if len(b) < PackedFileRecordHeader.size:
+            if len(b) < header_struct.size:
                 raise ValueError(
                     ('not enough data for the next record header ({} < {})'
-                     ).format(len(b), PackedFileRecordHeader.size))
+                     ).format(len(b), header_struct.size))
             logger.debug('reading a new packed experiment file record')
-            header = PackedFileRecordHeader.unpack_from(b)
+            header = header_struct.unpack_from(b)
             if header['version'] and not byte_order:
                 need_to_reorder = _need_to_reorder_bytes(header['version'])
                 byte_order = initial_byte_order = _byte_order(need_to_reorder)
@@ -95,9 +101,9 @@ def load(filename, strict=True, ignore_unknown=True, initial_byte_order=None):
                     'get byte order from version: %s (reorder? %s)',
                     byte_order, need_to_reorder)
                 if need_to_reorder:
-                    PackedFileRecordHeader.byte_order = byte_order
-                    PackedFileRecordHeader.setup()
-                    header = PackedFileRecordHeader.unpack_from(b)
+                    header_struct = setup_packed_file_record_header(
+                        byte_order=byte_order)
+                    header = header_struct.unpack_from(b)
                     logger.debug(
                         'reordered version: %s', header['version'])
             data = bytes(f.read(header['numDataBytes']))

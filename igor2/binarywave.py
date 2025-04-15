@@ -793,18 +793,23 @@ Wave5 = _DynamicStructure(
             count=0, array=True),
     ])
 
-Wave = _DynamicStructure(
-    name='Wave',
-    fields=[
-        DynamicVersionField(
-            'h',
-            'version',
-            help='Version number for backwards compatibility.'),
-        DynamicWaveField(
-            Wave1,
-            'wave',
-            help='The rest of the wave data.'),
-    ])
+
+def setup_wave(byte_order='='):
+    wave = _DynamicStructure(
+        name='Wave',
+        fields=[
+            DynamicVersionField(
+                'h',
+                'version',
+                help='Version number for backwards compatibility.'),
+            DynamicWaveField(
+                Wave1,
+                'wave',
+                help='The rest of the wave data.'),
+        ],
+        byte_order=byte_order)
+    wave.setup()
+    return wave
 
 
 def load(filename):
@@ -813,9 +818,8 @@ def load(filename):
     else:
         f = open(filename, 'rb')
     try:
-        Wave.byte_order = '='
-        Wave.setup()
-        data = Wave.unpack_stream(f)
+        wave = setup_wave()
+        data = wave.unpack_stream(f)
     finally:
         if not hasattr(filename, 'read'):
             f.close()
