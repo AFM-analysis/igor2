@@ -1,3 +1,5 @@
+import threading
+
 import numpy as np
 
 from igor2.packed import load as loadpxp
@@ -152,3 +154,25 @@ def test_pxt():
          12647., 14242., 14470., 13913., 14158., 14754., 14462., 14346.,
          14219., 13467., 13595., 14331., 13960., 12934., 12897., 13557.,
          13105., 12797., 13234., 13053., 13455., 12825.], dtype='>f8'))
+
+
+def test_thread_safe():
+
+    def worker(fileobj, thread_id):
+        expt = None
+        for bo in ('<', '>'):
+            try:
+                _, expt = loadpxp(fileobj, initial_byte_order=bo)
+            except ValueError:
+                pass
+        if expt is None:
+            raise ValueError(f"No experiment loaded for thread {thread_id}")
+
+    threads = []
+    for i, fname in enumerate([data_dir / 'packed-byteorder.pxt'] * 100):
+        t = threading.Thread(target=worker, args=(fname, i))
+        threads.append(t)
+        t.start()
+
+    for t in threads:
+        t.join()
