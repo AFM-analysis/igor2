@@ -1,7 +1,9 @@
+import hashlib
 import threading
 
 import numpy as np
 
+from igor2.binarywave import load as loadibw
 from igor2.packed import load as loadpxp
 
 from helper import data_dir
@@ -11,6 +13,67 @@ def tostr(data):
     if isinstance(data, bytes):
         data = data.decode("utf-8")
     return data
+
+
+def _array_fingerprint(data):
+    # Array signature for equality checks
+    array = np.ascontiguousarray(data)
+    return (
+        str(array.dtype),
+        tuple(int(i) for i in array.shape),
+        hashlib.sha256(array.tobytes()).hexdigest(),
+    )
+
+
+def _ibw_fingerprint(path):
+    data = loadibw(path)
+    wave = data["wave"]["wData"]
+    header = data["wave"]["wave_header"]
+    # Include metadata plus payload signature for equality checks.
+    return (
+        int(data["version"]),
+        tostr(header["bname"]),
+        _array_fingerprint(wave),
+    )
+
+
+def _pxp_fingerprint(path, initial_byte_order):
+    records, filesystem = loadpxp(path, initial_byte_order=initial_byte_order)
+    # Check both tree shape and wave payloads for equality checks.
+    root_keys = tuple(sorted(tostr(key) for key in filesystem["root"].keys()))
+    waves = []
+    for record in records:
+        if hasattr(record, "wave"):
+            wave = record.wave["wave"]["wData"]
+            name = tostr(record.wave["wave"]["wave_header"]["bname"])
+            waves.append((name,) + _array_fingerprint(wave))
+    return (len(records), root_keys, tuple(waves))
+
+
+def _run_concurrent_workload(worker_count, iterations_per_worker, task):
+    barrier = threading.Barrier(worker_count)
+    errors = []
+    lock = threading.Lock()
+
+    def worker(thread_id):
+        try:
+            barrier.wait()
+            for iteration in range(iterations_per_worker):
+                task(thread_id, iteration)
+        except Exception as exc:
+            with lock:
+                errors.append(f"thread {thread_id}: {exc!r}")
+
+    threads = []
+    for thread_id in range(worker_count):
+        thread = threading.Thread(target=worker, args=(thread_id,))
+        threads.append(thread)
+        thread.start()
+
+    for thread in threads:
+        thread.join()
+
+    assert not errors, "\n".join(errors[:10])
 
 
 def test_pxp():
@@ -157,22 +220,50 @@ def test_pxt():
 
 
 def test_thread_safe():
+    jobs = [
+        (data_dir / "polar-graphs-demo.pxp", None),
+        (data_dir / "packed-byteorder.pxt", ">"),
+    ]
+    expected = {job: _pxp_fingerprint(*job) for job in jobs}
 
-    def worker(fileobj, thread_id):
-        expt = None
-        for bo in ('<', '>'):
-            try:
-                _, expt = loadpxp(fileobj, initial_byte_order=bo)
-            except ValueError:
-                pass
-        if expt is None:
-            raise ValueError(f"No experiment loaded for thread {thread_id}")
+    def task(thread_id, iteration):
+        job = jobs[(thread_id + iteration) % len(jobs)]
+        assert _pxp_fingerprint(*job) == expected[job]
 
-    threads = []
-    for i, fname in enumerate([data_dir / 'packed-byteorder.pxt'] * 100):
-        t = threading.Thread(target=worker, args=(fname, i))
-        threads.append(t)
-        t.start()
+    _run_concurrent_workload(
+        worker_count=32,
+        iterations_per_worker=12,
+        task=task,
+    )
 
-    for t in threads:
-        t.join()
+
+def test_thread_safe_mixed():
+    ibw_jobs = [
+        data_dir / "mac-double.ibw",
+        data_dir / "win-double.ibw",
+        data_dir / "mac-version5.ibw",
+        data_dir / "win-version5.ibw",
+    ]
+    pxp_jobs = [
+        (data_dir / "polar-graphs-demo.pxp", None),
+        (data_dir / "packed-byteorder.pxt", ">"),
+    ]
+
+    expected_ibw = {job: _ibw_fingerprint(job) for job in ibw_jobs}
+    expected_pxp = {job: _pxp_fingerprint(*job) for job in pxp_jobs}
+    all_jobs = (
+        [("ibw", job) for job in ibw_jobs] + [("pxp", job) for job in pxp_jobs]
+    )
+
+    def task(thread_id, iteration):
+        kind, payload = all_jobs[(thread_id * 3 + iteration) % len(all_jobs)]
+        if kind == "ibw":
+            assert _ibw_fingerprint(payload) == expected_ibw[payload]
+        else:
+            assert _pxp_fingerprint(*payload) == expected_pxp[payload]
+
+    _run_concurrent_workload(
+        worker_count=32,
+        iterations_per_worker=10,
+        task=task,
+    )

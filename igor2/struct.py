@@ -826,3 +826,42 @@ class DynamicStructure (Structure):
         args = super(Structure, self).unpack_from(
             buffer, offset, *args, **kwargs)
         return self._unpack_item(args)
+
+
+def clone_structure(structure, _memo=None):
+    """Recursively clone a Structure/DynamicStructure tree.
+
+    struct.Struct-derived instances cannot be copied with copy.copy/deepcopy,
+    but we need independent parser instances for thread-safe dynamic unpacking.
+    """
+    if _memo is None:
+        _memo = {}
+    sid = id(structure)
+    if sid in _memo:
+        return _memo[sid]
+
+    clone = structure.__class__(
+        name=structure.name,
+        fields=[],
+        byte_order=structure.byte_order,
+    )
+    _memo[sid] = clone
+
+    fields = []
+    for field in structure.fields:
+        field_format = field.format
+        if isinstance(field_format, Structure):
+            field_format = clone_structure(field_format, _memo=_memo)
+        field_clone = field.__class__(
+            field_format,
+            field.name,
+            default=field.default,
+            help=field.help,
+            count=field.count,
+            array=field.array,
+        )
+        fields.append(field_clone)
+
+    clone.fields = fields
+    clone.setup()
+    return clone

@@ -1,5 +1,6 @@
 import io as _io
 import logging
+import threading as _threading
 
 from ..binarywave import TYPE_TABLE as _TYPE_TABLE
 from ..binarywave import NullStaticStringField as _NullStaticStringField
@@ -8,12 +9,14 @@ from ..struct import Structure as _Structure
 from ..struct import DynamicStructure as _DynamicStructure
 from ..struct import Field as _Field
 from ..struct import DynamicField as _DynamicField
+from ..struct import clone_structure as _clone_structure
 from ..util import byte_order as _byte_order
 from ..util import need_to_reorder_bytes as _need_to_reorder_bytes
 from .base import Record
 
 
 logger = logging.getLogger(__name__)
+_thread_local = _threading.local()
 
 
 class ListedStaticStringField(_NullStaticStringField):
@@ -297,11 +300,13 @@ class DynamicVersionField (_DynamicField):
         else:
             need_to_reorder_bytes = False
 
+        version_map = getattr(variables_structure, '_version_structures', {
+            1: Variables1,
+            2: Variables2,
+        })
         old_format = variables_structure.fields[-1].format
-        if version == 1:
-            variables_structure.fields[-1].format = Variables1
-        elif version == 2:
-            variables_structure.fields[-1].format = Variables2
+        if version in version_map:
+            variables_structure.fields[-1].format = version_map[version]
         elif not need_to_reorder_bytes:
             raise ValueError(
                 'invalid variables record version: {}'.format(version))
@@ -318,26 +323,52 @@ class DynamicVersionField (_DynamicField):
         return need_to_reorder_bytes
 
 
-VariablesRecordStructure = _DynamicStructure(
-    name='VariablesRecord',
-    fields=[
-        DynamicVersionField(
-            'h', 'version', help='Version number for this header.'),
-        _Field(
-            Variables1,
-            'variables',
-            help='The rest of the variables data.'),
-    ])
+def setup_variables_record(byte_order='='):
+    variables1 = _clone_structure(Variables1)
+    variables2 = _clone_structure(Variables2)
+    variables_record_structure = _DynamicStructure(
+        name='VariablesRecord',
+        fields=[
+            DynamicVersionField(
+                'h', 'version', help='Version number for this header.'),
+            _Field(
+                variables1,
+                'variables',
+                help='The rest of the variables data.'),
+        ],
+        byte_order=byte_order)
+    variables_record_structure._version_structures = {
+        1: variables1,
+        2: variables2,
+    }
+    variables_record_structure.setup()
+    return variables_record_structure
+
+
+def _get_thread_local_variables_record():
+    variables_record_structure = getattr(
+        _thread_local, 'variables_record_structure', None)
+    if variables_record_structure is None:
+        variables_record_structure = setup_variables_record(byte_order='=')
+        _thread_local.variables_record_structure = variables_record_structure
+    return variables_record_structure
+
+
+def _reset_variables_record_parser(variables_record_structure):
+    variables_record_structure.byte_order = '='
+    variables_record_structure.fields[-1].format = (
+        variables_record_structure._version_structures[1])
+    variables_record_structure.setup()
 
 
 class VariablesRecord (Record):
     def __init__(self, *args, **kwargs):
         super(VariablesRecord, self).__init__(*args, **kwargs)
         # self.header['version']  # record version always 0?
-        VariablesRecordStructure.byte_order = '='
-        VariablesRecordStructure.setup()
+        variables_record_structure = _get_thread_local_variables_record()
+        _reset_variables_record_parser(variables_record_structure)
         stream = _io.BytesIO(bytes(self.data))
-        self.variables = VariablesRecordStructure.unpack_stream(stream)
+        self.variables = variables_record_structure.unpack_stream(stream)
         self.namespace = {}
         for key, value in self.variables['variables'].items():
             if key not in ['var_header']:
