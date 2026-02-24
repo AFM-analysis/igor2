@@ -1,5 +1,6 @@
 """Read IGOR Binary Wave files into Numpy arrays."""
 import logging
+import threading as _threading
 # Based on WaveMetric's Technical Note 003, "Igor Binary Format"
 #   ftp://ftp.wavemetrics.net/IgorPro/Technical_Notes/TN003.zip
 # From ftp://ftp.wavemetrics.net/IgorPro/Technical_Notes/TN000.txt
@@ -13,11 +14,13 @@ from .struct import Structure as _Structure
 from .struct import DynamicStructure as _DynamicStructure
 from .struct import Field as _Field
 from .struct import DynamicField as _DynamicField
+from .struct import clone_structure as _clone_structure
 from .util import byte_order as _byte_order
 from .util import need_to_reorder_bytes as _need_to_reorder_bytes
 
 
 logger = logging.getLogger(__name__)
+_thread_local = _threading.local()
 
 # Numpy doesn't support complex integers by default, see
 #   http://mail.python.org/pipermail/python-dev/2002-April/022408.html
@@ -625,15 +628,15 @@ class DynamicVersionField (_DynamicField):
         else:
             need_to_reorder_bytes = False
 
+        version_map = getattr(wave_structure, '_wave_versions', {
+            1: Wave1,
+            2: Wave2,
+            3: Wave3,
+            5: Wave5,
+        })
         old_format = wave_structure.fields[-1].format
-        if version == 1:
-            wave_structure.fields[-1].format = Wave1
-        elif version == 2:
-            wave_structure.fields[-1].format = Wave2
-        elif version == 3:
-            wave_structure.fields[-1].format = Wave3
-        elif version == 5:
-            wave_structure.fields[-1].format = Wave5
+        if version in version_map:
+            wave_structure.fields[-1].format = version_map[version]
         elif not need_to_reorder_bytes:
             raise ValueError(
                 'invalid binary wave version: {}'.format(version))
@@ -795,6 +798,10 @@ Wave5 = _DynamicStructure(
 
 
 def setup_wave(byte_order='='):
+    wave1 = _clone_structure(Wave1)
+    wave2 = _clone_structure(Wave2)
+    wave3 = _clone_structure(Wave3)
+    wave5 = _clone_structure(Wave5)
     wave = _DynamicStructure(
         name='Wave',
         fields=[
@@ -803,13 +810,33 @@ def setup_wave(byte_order='='):
                 'version',
                 help='Version number for backwards compatibility.'),
             DynamicWaveField(
-                Wave1,
+                wave1,
                 'wave',
                 help='The rest of the wave data.'),
         ],
         byte_order=byte_order)
+    wave._wave_versions = {
+        1: wave1,
+        2: wave2,
+        3: wave3,
+        5: wave5,
+    }
     wave.setup()
     return wave
+
+
+def _get_thread_local_wave():
+    wave = getattr(_thread_local, 'wave', None)
+    if wave is None:
+        wave = setup_wave(byte_order='=')
+        _thread_local.wave = wave
+    return wave
+
+
+def _reset_wave_parser(wave):
+    wave.byte_order = '='
+    wave.fields[-1].format = wave._wave_versions[1]
+    wave.setup()
 
 
 def load(filename):
@@ -818,7 +845,8 @@ def load(filename):
     else:
         f = open(filename, 'rb')
     try:
-        wave = setup_wave()
+        wave = _get_thread_local_wave()
+        _reset_wave_parser(wave)
         data = wave.unpack_stream(f)
     finally:
         if not hasattr(filename, 'read'):
