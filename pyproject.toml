@@ -5,11 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "igor2"
 authors = [
-    {name = "Paul Kienzle"},
-    {name = "W. Trevor King"},
+    # in alphabetical order
     {name = "Aurelien Jaquier"},
-    {name = "Zbigniew Jędrzejewski-Szmek"},
+    {name = "Kimoon Higashihira Han"},
+    {name = "Paul Kienzle"},
     {name = "Paul Müller"},
+    {name = "W. Trevor King"},
+    {name = "Zbigniew Jędrzejewski-Szmek"},
 ]
 description = "interface for reading binary IGOR files"
 readme = "Readme.rst"
