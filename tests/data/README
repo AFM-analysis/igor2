@@ -2,3 +2,8 @@
 
 polar-graphs-demo.pxp was distributed with IGOR Pro 5.04 as
   Examples/Graphing Techniques/Obsolete/Polar Graphs Demo.pxp
+
+text3.ibw was provided by jbemis99 in issue #25:
+https://github.com/AFM-analysis/igor2/issues/25
+The 3-by-2 text wave contains columns (cat, dog, fish) and
+(tiger, wolf, shark), as shown by the reporter in Igor Pro.
