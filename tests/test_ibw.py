@@ -1,4 +1,5 @@
 from helper import assert_equal_dump_no_whitespace_no_byte, dumpibw
+from helper import data_dir, loadibw
 
 
 def test_ibw01():
@@ -629,3 +630,14 @@ def test_ibw_10():
                               'whpad4': 0}}}
     """
     assert_equal_dump_no_whitespace_no_byte(act, exp)
+
+
+def test_multidimensional_text_wave():
+    data = loadibw(data_dir / 'text3.ibw')['wave']['wData']
+
+    assert data.shape == (3, 2)
+    assert data.tolist() == [
+        [b'cat', b'tiger'],
+        [b'dog', b'wolf'],
+        [b'fish', b'shark'],
+    ]

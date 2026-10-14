@@ -602,7 +602,7 @@ class DynamicStringIndicesDataField (_DynamicField):
         wdata = _numpy.array(strings)
         shape = [n for n in wave_header['nDim'] if n > 0] or (0,)
         try:
-            wdata = wdata.reshape(shape)
+            wdata = wdata.reshape(shape, order='F')
         except ValueError:
             logger.error(
                 'could not reshape strings from %s to %s',
