@@ -1,4 +1,4 @@
-Unreleased
+0.5.14
  - fix: preserve column-major ordering of multidimensional text waves (#25)
 0.5.13
  - fix: thread safety issues and add better concurrent tests (#27)
