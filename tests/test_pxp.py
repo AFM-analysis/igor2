@@ -331,3 +331,25 @@ def test_long_folder_name_rejects_bad_length():
         assert 'long folder name length' in str(exc)
     else:
         raise AssertionError('mismatched long folder name was accepted')
+
+
+def test_igor8_long_folder_name_file():
+    # Igor Pro 8 experiment from issue 28, trimmed to one wave per folder.
+    records, filesystem = loadpxp(
+        data_dir / 'igor8-long-folder-names.pxp')
+    assert len(records) == 153
+    usaxs = filesystem['root'][b'USAXS']
+    assert len(usaxs) == 24
+    names = set(usaxs)
+    assert b'AMC_04_07_26_3min_0033' in names
+    assert b'AMC_25_crystalline_04_07_26_10min_0036' in names
+    assert b'X7_AMC_cyrstalline_04_01_26_0031' in names
+    assert (b'X6_This is very_long_object_name_which_is_allowed_'
+            b'AMC_25_crystalline_04_02_26_0030') in names
+    assert sum(len(name) > 31 for name in names) == 18
+    for folder in usaxs.values():
+        assert set(folder) == {b'DSM_dQ', b'Slitlength'}
+    wave = usaxs[b'AMC_25_crystalline_04_07_26_10min_0036'][b'DSM_dQ']
+    assert wave.wave['wave']['wData'].shape == (521,)
+    wave = usaxs[b'AMC_25_crystalline_04_07_26_229min_0126'][b'DSM_dQ']
+    assert wave.wave['wave']['wData'].shape == (506,)
