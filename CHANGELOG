@@ -1,5 +1,7 @@
 0.5.14
  - fix: preserve column-major ordering of multidimensional text waves (#25)
+ - fix: read Igor Pro 8 long data-folder names (#28, #30)
+ - tests: add trimmed Igor Pro 8 experiment from #28
 0.5.13
  - fix: thread safety issues and add better concurrent tests (#27)
 0.5.12
