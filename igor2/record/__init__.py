@@ -6,7 +6,7 @@ from .history import HistoryRecord, RecreationRecord, GetHistoryRecord
 from .wave import WaveRecord
 from .procedure import ProcedureRecord
 from .packedfile import PackedFileRecord
-from .folder import FolderStartRecord, FolderEndRecord
+from .folder import FolderStartRecord, FolderEndRecord, LongFolderStartRecord
 
 
 # From PackedFile.h
@@ -22,4 +22,6 @@ RECORD_TYPE = {
     8: PackedFileRecord,
     9: FolderStartRecord,
     10: FolderEndRecord,
+    # Igor Pro 8 uses 101 when a folder name does not fit in 31 bytes.
+    101: LongFolderStartRecord,
 }

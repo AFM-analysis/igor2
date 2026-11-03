@@ -1,5 +1,7 @@
 import hashlib
+import struct
 import threading
+from io import BytesIO
 
 import numpy as np
 
@@ -267,3 +269,65 @@ def test_thread_safe_mixed():
         iterations_per_worker=10,
         task=task,
     )
+
+
+def _pxp_record(record_type, version, payload, order):
+    header = struct.pack(
+        order + 'Hhl', record_type, version, len(payload))
+    return header + payload
+
+
+def _short_folder_name(name):
+    if len(name) > 31:
+        raise ValueError(name)
+    return name.ljust(32, b'\x00')
+
+
+def test_igor8_long_folder_name():
+    # Names taken from the Igor Pro 8 experiment attached to issue 28.
+    long_name = (
+        b'X6_This is very_long_object_name_which_is_allowed_'
+        b'AMC_25_crystalline_04_02_26_0030')
+    issue_name = b'AMC_25_crystalline_04_07_26_10min_0036'
+    name_32 = b'X7_AMC_cyrstalline_04_01_26_0031'
+    short_name = b'AMC_04_07_26_3min_0033'
+    assert len(long_name) == 82
+    assert len(issue_name) == 38
+    assert len(name_32) == 32
+    assert len(short_name) <= 31
+    expected = {long_name, issue_name, name_32, short_name}
+    for order in ('<', '>'):
+        parts = [
+            _pxp_record(9, 1, _short_folder_name(b'USAXS'), order),
+            _pxp_record(33, 0, struct.pack(order + 'I', 1), order),
+        ]
+        for name in (long_name, issue_name, name_32):
+            parts.append(_pxp_record(
+                101, 0, struct.pack(order + 'I', len(name)) + name, order))
+            parts.append(_pxp_record(
+                33, 0, struct.pack(order + 'I', 2), order))
+            parts.append(_pxp_record(10, 0, b'', order))
+        parts.append(_pxp_record(
+            9, 1, _short_folder_name(short_name), order))
+        parts.append(_pxp_record(10, 0, b'', order))
+        parts.append(_pxp_record(10, 0, b'', order))
+        filesystem = loadpxp(BytesIO(b''.join(parts)))[1]
+        children = filesystem['root'][b'USAXS']
+        assert set(children) == expected
+        assert children[long_name] == {}
+        assert children[issue_name] == {}
+        assert children[name_32] == {}
+        assert children[short_name] == {}
+
+
+def test_long_folder_name_rejects_bad_length():
+    payload = struct.pack('<I', 3) + b'abcd'
+    blob = _pxp_record(9, 1, _short_folder_name(b'short'), '<')
+    blob += _pxp_record(101, 0, payload, '<')
+    blob += _pxp_record(10, 0, b'', '<')
+    try:
+        loadpxp(BytesIO(blob))
+    except ValueError as exc:
+        assert 'long folder name length' in str(exc)
+    else:
+        raise AssertionError('mismatched long folder name was accepted')
