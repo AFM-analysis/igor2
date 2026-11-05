@@ -1,3 +1,5 @@
+0.5.16
+ - fix: read Igor Pro 8 binary wave version 7 long wave names (#32)
 0.5.15
  - fix: read Igor Pro 8 long data-folder names (#28, #30)
  - tests: add trimmed Igor Pro 8 experiment from #28

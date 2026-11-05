@@ -563,6 +563,35 @@ class DynamicLabelsField (DynamicStringField):
         wave_data[self.name] = dim_labels
 
 
+class DynamicLongWaveNameField (DynamicStringField):
+    """Igor Pro 8 name for a wave that does not fit in 31 bytes.
+
+    Version 7 keeps the version 5 layout and stores the name after the
+    last version 5 section. ``optionsSize1``, which TN003 says to
+    ignore, is the byte count. The bytes are not NUL-terminated. Igor
+    writes ``:wave name too long:`` in ``bname`` when this name is
+    present.
+    """
+
+    _size_field = 'optionsSize1'
+
+    def pre_unpack(self, parents, data):
+        size = self._get_size_data(parents, data)
+        if size < 0:
+            raise ValueError(
+                'long wave name length {} is negative'.format(size))
+        super(DynamicLongWaveNameField, self).pre_unpack(parents, data)
+
+    def post_unpack(self, parents, data):
+        super(DynamicLongWaveNameField, self).post_unpack(parents, data)
+        wave_structure = parents[-1]
+        wave_data = self._get_structure_data(parents, data, wave_structure)
+        name = wave_data[self.name]
+        placeholder = b':wave name too long:'
+        if name and wave_data['wave_header']['bname'] == placeholder:
+            wave_data['wave_header']['bname'] = name
+
+
 class DynamicStringIndicesDataField (_DynamicField):
     """String indices used for text waves only
     """
@@ -633,6 +662,7 @@ class DynamicVersionField (_DynamicField):
             2: Wave2,
             3: Wave3,
             5: Wave5,
+            7: Wave7,
         })
         old_format = wave_structure.fields[-1].format
         if version in version_map:
@@ -797,11 +827,24 @@ Wave5 = _DynamicStructure(
     ])
 
 
+# Version 7 is version 5 plus the long name. Built from a clone so the
+# version 5 field objects stay independent.
+Wave7 = _clone_structure(Wave5)
+Wave7.name = 'Wave7'
+Wave7.fields.append(DynamicLongWaveNameField(
+    'c', 'long_name',
+    help='Long wave name stored after the version 5 sections.',
+    count=0,
+    array=True))
+Wave7.setup()
+
+
 def setup_wave(byte_order='='):
     wave1 = _clone_structure(Wave1)
     wave2 = _clone_structure(Wave2)
     wave3 = _clone_structure(Wave3)
     wave5 = _clone_structure(Wave5)
+    wave7 = _clone_structure(Wave7)
     wave = _DynamicStructure(
         name='Wave',
         fields=[
@@ -820,6 +863,7 @@ def setup_wave(byte_order='='):
         2: wave2,
         3: wave3,
         5: wave5,
+        7: wave7,
     }
     wave.setup()
     return wave

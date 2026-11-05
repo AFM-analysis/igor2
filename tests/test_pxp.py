@@ -8,7 +8,7 @@ import numpy as np
 from igor2.binarywave import load as loadibw
 from igor2.packed import load as loadpxp
 
-from helper import data_dir
+from helper import data_dir, version7_from_version5
 
 
 def tostr(data):
@@ -318,6 +318,22 @@ def test_igor8_long_folder_name():
         assert children[issue_name] == {}
         assert children[name_32] == {}
         assert children[short_name] == {}
+
+
+def test_version7_long_wave_name_in_packed_experiment():
+    name = b'r_ReactedQ_1p73Inlet_0006_270_30_more'
+    cases = (
+        ('<', 'win-version5.ibw'),
+        ('>', 'mac-version5.ibw'),
+    )
+    for order, filename in cases:
+        payload = version7_from_version5(
+            (data_dir / filename).read_bytes(), name, order)
+        records, filesystem = loadpxp(BytesIO(
+            _pxp_record(3, 1, payload, order)))
+        assert set(filesystem['root']) == {name}
+        assert records[0].wave['wave']['wave_header']['bname'] == name
+        assert records[0].wave['wave']['wData'].shape == (5,)
 
 
 def test_long_folder_name_rejects_bad_length():
