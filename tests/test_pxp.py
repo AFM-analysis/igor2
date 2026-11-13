@@ -336,6 +336,23 @@ def test_version7_long_wave_name_in_packed_experiment():
         assert records[0].wave['wave']['wData'].shape == (5,)
 
 
+def test_version7_real_long_wave_record():
+    # Derived from jilavsky's Igor Pro record; its unrelated wave note was removed.
+    # https://github.com/AFM-analysis/igor2/pull/33#issuecomment-6674192662
+    records, filesystem = loadpxp(data_dir / 'igor8-real-long-wave-sanitized.pxp')
+    name = b'r_ReactedQ_1p73Outlet_this_is_a_very_long_folder_0007_270_30'
+    assert set(filesystem['root']) == {name}
+    assert len(records) == 1
+    wave = records[0].wave['wave']
+    assert wave['wave_header']['bname'] == name
+    assert wave['wData'].shape == (119,)
+    assert wave['wData'].dtype.kind == 'f'
+    assert wave['wData'].dtype.itemsize == 4
+    data = np.asarray(wave['wData'], dtype='<f4').tobytes()
+    assert hashlib.sha256(data).hexdigest() == (
+        'a3032a2da31db68d73885c5361867ad260493758b62aa70a9bfb5b04a4581ccb')
+
+
 def test_long_folder_name_rejects_bad_length():
     payload = struct.pack('<I', 3) + b'abcd'
     blob = _pxp_record(9, 1, _short_folder_name(b'short'), '<')
