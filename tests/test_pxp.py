@@ -337,9 +337,10 @@ def test_version7_long_wave_name_in_packed_experiment():
 
 
 def test_version7_real_long_wave_record():
-    # Derived from jilavsky's Igor Pro record; its unrelated wave note was removed.
+    # Derived from jilavsky's Igor Pro record; unrelated note removed.
     # https://github.com/AFM-analysis/igor2/pull/33#issuecomment-6674192662
-    records, filesystem = loadpxp(data_dir / 'igor8-real-long-wave-sanitized.pxp')
+    records, filesystem = loadpxp(
+        data_dir / 'igor8-real-long-wave-sanitized.pxp')
     name = b'r_ReactedQ_1p73Outlet_this_is_a_very_long_folder_0007_270_30'
     assert set(filesystem['root']) == {name}
     assert len(records) == 1
