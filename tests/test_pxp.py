@@ -8,7 +8,7 @@ import numpy as np
 from igor2.binarywave import load as loadibw
 from igor2.packed import load as loadpxp
 
-from helper import data_dir
+from helper import data_dir, version7_from_version5
 
 
 def tostr(data):
@@ -318,6 +318,40 @@ def test_igor8_long_folder_name():
         assert children[issue_name] == {}
         assert children[name_32] == {}
         assert children[short_name] == {}
+
+
+def test_version7_long_wave_name_in_packed_experiment():
+    name = b'r_ReactedQ_1p73Inlet_0006_270_30_more'
+    cases = (
+        ('<', 'win-version5.ibw'),
+        ('>', 'mac-version5.ibw'),
+    )
+    for order, filename in cases:
+        payload = version7_from_version5(
+            (data_dir / filename).read_bytes(), name, order)
+        records, filesystem = loadpxp(BytesIO(
+            _pxp_record(3, 1, payload, order)))
+        assert set(filesystem['root']) == {name}
+        assert records[0].wave['wave']['wave_header']['bname'] == name
+        assert records[0].wave['wave']['wData'].shape == (5,)
+
+
+def test_version7_real_long_wave_record():
+    # Derived from jilavsky's Igor Pro record; unrelated note removed.
+    # https://github.com/AFM-analysis/igor2/pull/33#issuecomment-6674192662
+    records, filesystem = loadpxp(
+        data_dir / 'igor8-real-long-wave-sanitized.pxp')
+    name = b'r_ReactedQ_1p73Outlet_this_is_a_very_long_folder_0007_270_30'
+    assert set(filesystem['root']) == {name}
+    assert len(records) == 1
+    wave = records[0].wave['wave']
+    assert wave['wave_header']['bname'] == name
+    assert wave['wData'].shape == (119,)
+    assert wave['wData'].dtype.kind == 'f'
+    assert wave['wData'].dtype.itemsize == 4
+    data = np.asarray(wave['wData'], dtype='<f4').tobytes()
+    assert hashlib.sha256(data).hexdigest() == (
+        'a3032a2da31db68d73885c5361867ad260493758b62aa70a9bfb5b04a4581ccb')
 
 
 def test_long_folder_name_rejects_bad_length():

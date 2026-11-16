@@ -1,5 +1,9 @@
+from io import BytesIO
+
+import numpy as np
+
 from helper import assert_equal_dump_no_whitespace_no_byte, dumpibw
-from helper import data_dir, loadibw
+from helper import data_dir, loadibw, version7_from_version5
 
 
 def test_ibw01():
@@ -641,3 +645,73 @@ def test_multidimensional_text_wave():
         [b'dog', b'wolf'],
         [b'fish', b'shark'],
     ]
+
+
+def test_version7_long_wave_name():
+    # 32-byte name from issue 32, plus a longer name that cannot fit
+    # in the version 5 bname field even without a trailing NUL.
+    issue_name = b'r_ReactedQ_1p73Inlet_0006_270_30'
+    longer_name = issue_name + b'_extra'
+    assert len(issue_name) == 32
+    cases = (
+        ('<', 'win-version5.ibw'),
+        ('>', 'mac-version5.ibw'),
+    )
+    for order, filename in cases:
+        original = (data_dir / filename).read_bytes()
+        original_wave = loadibw(BytesIO(original))['wave']
+        for name in (issue_name, longer_name):
+            loaded = loadibw(BytesIO(
+                version7_from_version5(original, name, order)))
+            assert loaded['version'] == 7
+            wave = loaded['wave']
+            assert wave['wave_header']['bname'] == name
+            assert wave['long_name'] == name
+            assert wave['bin_header']['optionsSize1'] == len(name)
+            assert wave['note'] == original_wave['note']
+            assert np.array_equal(wave['wData'], original_wave['wData'])
+
+
+def test_version7_without_long_name_keeps_short_bname():
+    original = (data_dir / 'win-version5.ibw').read_bytes()
+    renamed = bytearray(original)
+    renamed[:2] = b'\x07\x00'
+    loaded = loadibw(BytesIO(bytes(renamed)))
+    original_wave = loadibw(BytesIO(original))['wave']
+    assert loaded['version'] == 7
+    assert loaded['wave']['wave_header']['bname'] == b'version5'
+    assert loaded['wave']['long_name'] == b''
+    assert np.array_equal(
+        loaded['wave']['wData'], original_wave['wData'])
+
+
+def test_version7_keeps_bname_when_it_is_not_the_placeholder():
+    original = (data_dir / 'win-version5.ibw').read_bytes()
+    extra = b'not-the-wave-name'
+    loaded = loadibw(BytesIO(version7_from_version5(
+        original, extra, '<', replace_bname=False)))
+    assert loaded['wave']['wave_header']['bname'] == b'version5'
+    assert loaded['wave']['long_name'] == extra
+
+
+def test_version7_rejects_negative_name_length():
+    original = bytearray((data_dir / 'win-version5.ibw').read_bytes())
+    original[:2] = b'\x07\x00'
+    original[56:60] = b'\xff\xff\xff\xff'
+    try:
+        loadibw(BytesIO(bytes(original)))
+    except ValueError as exc:
+        assert 'negative' in str(exc)
+    else:
+        raise AssertionError('negative long wave name length was accepted')
+
+
+def test_version7_rejects_truncated_name():
+    original = (data_dir / 'win-version5.ibw').read_bytes()
+    blob = version7_from_version5(original, b'abcdef', '<')[:-3]
+    try:
+        loadibw(BytesIO(blob))
+    except ValueError as exc:
+        assert 'not enough data' in str(exc)
+    else:
+        raise AssertionError('truncated long wave name was accepted')
