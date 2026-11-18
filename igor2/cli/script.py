@@ -60,10 +60,10 @@ class Script (object):
         raise NotImplementedError()
 
     def plot_wave(self, args, wave, title=None):
-        if pyplot is None:
-            raise ValueError("Please install `matplotlib` for plotting.")
         if not args.plot:
             return  # no-op
+        if pyplot is None:
+            raise ValueError("Please install `matplotlib` for plotting.")
         if title is None:
             title = wave['wave']['wave_header']['bname']
         figure = pyplot.figure()
@@ -77,7 +77,8 @@ class Script (object):
         self._num_plots += 1
 
     def display_plots(self):
+        if not self._num_plots:
+            return
         if pyplot is None:
             raise ValueError("Please install `matplotlib` for plotting.")
-        if self._num_plots:
-            pyplot.show()
+        pyplot.show()
