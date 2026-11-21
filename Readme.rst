@@ -31,7 +31,45 @@ with::
     import igor2 as igor
 
 
-See the docstrings and unit tests for examples using the Python API.
+Reading wave samples
+~~~~~~~~~~~~~~~~~~~~
+
+The examples below use files from ``tests/data`` in the source repository.
+For a one-dimensional numeric wave in an IBW file, ``wData`` contains the
+samples. Use the wave header to convert sample indices to axis coordinates::
+
+    import numpy as np
+    from igor2 import binarywave
+
+    wave = binarywave.load("tests/data/win-version5.ibw")["wave"]
+    samples = wave["wData"]
+    header = wave["wave_header"]
+    if "sfA" in header:
+        step, offset = header["sfA"][0], header["sfB"][0]
+    else:
+        step, offset = header["hsA"], header["hsB"]
+    x = offset + step * np.arange(samples.size)
+
+A PXP file can contain multiple waves in different data folders. Collect
+them by their full Igor paths, then select the wave you need::
+
+    from igor2 import packed
+    from igor2.record import WaveRecord
+
+    _, filesystem = packed.load("tests/data/polar-graphs-demo.pxp")
+    waves = {}
+
+    def collect_wave(path, name, record):
+        if isinstance(record, WaveRecord):
+            waves[b":".join(path + [name])] = record.wave["wave"]["wData"]
+
+    packed.walk(filesystem, collect_wave)
+    print(sorted(waves))
+    radius = waves[b"root:radiusData"]
+
+For acquisition data, use the experiment's channel names and units to
+identify recorded traces. Reconstructing a stimulus that was generated
+but never saved as a wave requires the acquisition protocol.
 
 CLI
 ---
